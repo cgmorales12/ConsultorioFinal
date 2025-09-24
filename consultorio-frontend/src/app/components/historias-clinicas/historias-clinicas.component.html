@@ -1,0 +1,317 @@
+<div class="historias-wrapper">
+  <aside class="historias-sidebar">
+    <div class="sidebar-header">
+      <h2><i class="fas fa-file-medical"></i> Historias clínicas</h2>
+      <p class="sidebar-subtitle">Registros completos por paciente</p>
+    </div>
+
+    <div class="sidebar-content">
+      <div class="paciente-selector">
+        <label for="pacienteSelect">Paciente</label>
+        <select
+          id="pacienteSelect"
+          [formControl]="pacienteControl"
+        >
+          <option [ngValue]="null">Todos los pacientes</option>
+          <option *ngFor="let paciente of pacientes" [ngValue]="paciente.id ?? null">
+            {{ paciente.nombreCompleto || (paciente.nombres + ' ' + paciente.apellidos) }}
+          </option>
+        </select>
+        <button
+          type="button"
+          class="crear-historia"
+          (click)="crearHistoriaParaPaciente()"
+          [disabled]="creandoHistoria || !pacienteControl.value"
+        >
+          <i class="fas" [ngClass]="creandoHistoria ? 'fa-spinner fa-spin' : 'fa-file-medical'"></i>
+          {{ creandoHistoria ? 'Creando...' : 'Crear historia' }}
+        </button>
+      </div>
+
+      <div *ngIf="cargandoHistorias" class="sidebar-loading">
+        <i class="fas fa-spinner fa-spin"></i>
+        <span>Cargando historias...</span>
+      </div>
+
+      <ng-container *ngIf="!cargandoHistorias && historias.length > 0; else sinHistorias">
+        <button
+          type="button"
+          *ngFor="let historia of historias"
+          (click)="seleccionarHistoria(historia)"
+          [class.active]="historiaSeleccionada?.historiaClinicaId === historia.historiaClinicaId"
+          class="historia-item"
+        >
+          <div class="historia-item__nombre">{{ historia.pacienteNombre }}</div>
+          <div class="historia-item__info">
+            <span>
+              <i class="fas fa-calendar-check"></i>
+              {{ historia.consultas.length }} consultas
+            </span>
+            <span><i class="fas fa-clock"></i> {{ formatearFecha(historia.ultimaActualizacion) }}</span>
+          </div>
+        </button>
+      </ng-container>
+
+      <ng-template #sinHistorias>
+        <div class="sidebar-empty">
+          <i class="fas fa-clipboard-list"></i>
+          <ng-container *ngIf="pacienteFiltradoId; else sinFiltro">
+            <p>No hay historia clínica registrada para el paciente seleccionado.</p>
+            <p class="hint">Crea una nueva historia para comenzar a registrar sus consultas.</p>
+          </ng-container>
+          <ng-template #sinFiltro>
+            <p>No hay historias clínicas registradas.</p>
+            <p class="hint">Crea pacientes y registra su primera consulta para iniciar la historia.</p>
+          </ng-template>
+        </div>
+      </ng-template>
+    </div>
+  </aside>
+
+  <section class="historias-content" *ngIf="historiaSeleccionada as historia; else seleccionaHistoria">
+    <header class="historia-header">
+      <div>
+        <h2>{{ historia.pacienteNombre }}</h2>
+        <p class="historia-meta">
+          Historia creada el {{ formatearFecha(historia.fechaCreacion || '') }} · Última actualización {{ formatearFecha(historia.ultimaActualizacion || '') }}
+        </p>
+      </div>
+      <div class="historia-stats">
+        <div>
+          <span class="stat-value">{{ historia.consultas.length }}</span>
+          <span class="stat-label">Consultas registradas</span>
+        </div>
+        <div>
+          <span class="stat-value">{{ imcUltimoControl !== null ? imcUltimoControl : '—' }}</span>
+          <span class="stat-label">IMC último control</span>
+        </div>
+      </div>
+    </header>
+
+    <div *ngIf="mensajeError" class="mensaje-error">
+      <i class="fas fa-exclamation-triangle"></i>
+      {{ mensajeError }}
+    </div>
+
+    <div class="historia-sections">
+      <section class="card antecedentes">
+        <header>
+          <h3><i class="fas fa-history"></i> Antecedentes</h3>
+          <p>Actualiza antecedentes personales, familiares, vacunas y alergias en un solo lugar.</p>
+        </header>
+        <form [formGroup]="antecedentesForm" (ngSubmit)="guardarAntecedentes()">
+          <div class="form-grid">
+            <label>
+              Antecedentes personales
+              <textarea formControlName="antecedentesPersonales" rows="3" placeholder="Cirugías, condiciones crónicas, hábitos..."></textarea>
+            </label>
+            <label>
+              Antecedentes familiares
+              <textarea formControlName="antecedentesFamiliares" rows="3" placeholder="Enfermedades heredadas, antecedentes relevantes..."></textarea>
+            </label>
+            <label>
+              Vacunas
+              <textarea formControlName="vacunas" rows="2" placeholder="Esquema de vacunación actualizado"></textarea>
+            </label>
+            <label>
+              Alergias
+              <textarea formControlName="alergias" rows="2" placeholder="Medicamentos, alimentos o factores ambientales"></textarea>
+            </label>
+          </div>
+          <button type="submit" class="btn-primary" [disabled]="guardandoAntecedentes">
+            <i class="fas" [ngClass]="guardandoAntecedentes ? 'fa-spinner fa-spin' : 'fa-save'"></i>
+            {{ guardandoAntecedentes ? 'Guardando...' : 'Guardar antecedentes' }}
+          </button>
+          <p *ngIf="mensajeAntecedentesExito" class="mensaje-exito">
+            <i class="fas fa-check-circle"></i>
+            {{ mensajeAntecedentesExito }}
+          </p>
+        </form>
+      </section>
+
+      <section class="card historial">
+        <header>
+          <div>
+            <h3><i class="fas fa-stethoscope"></i> Consultas médicas</h3>
+            <p>Revisa el historial completo de consultas con alertas clínicas automáticas.</p>
+          </div>
+          <div class="legend">
+            <span><i class="fas fa-weight"></i> Alertas de IMC</span>
+            <span><i class="fas fa-heartbeat"></i> Presión arterial</span>
+            <span><i class="fas fa-temperature-high"></i> Temperatura</span>
+          </div>
+        </header>
+
+        <div *ngIf="historialConsultas.length === 0" class="historial-empty">
+          <i class="fas fa-clipboard-check"></i>
+          <p>Aún no se registran consultas para este paciente.</p>
+        </div>
+
+        <div class="consulta-list" *ngIf="historialConsultas.length > 0">
+          <article class="consulta" *ngFor="let consulta of historialConsultas">
+            <div class="consulta-fecha">
+              <span class="dia">{{ formatearFecha(consulta.fechaConsulta) }}</span>
+              <span class="motivo">{{ consulta.motivoConsulta }}</span>
+            </div>
+            <div class="consulta-detalle">
+              <div class="detalle-col">
+                <h4>Resumen</h4>
+                <p><strong>Diagnóstico:</strong> {{ consulta.diagnostico }}</p>
+                <p><strong>Tratamiento:</strong> {{ consulta.tratamiento }}</p>
+                <p *ngIf="consulta.observaciones"><strong>Notas:</strong> {{ consulta.observaciones }}</p>
+              </div>
+              <div class="detalle-col">
+                <h4>Examen físico</h4>
+                <ul>
+                  <li><i class="fas fa-weight"></i> {{ consulta.pesoKg != null ? consulta.pesoKg + ' kg' : '—' }}</li>
+                  <li><i class="fas fa-ruler"></i> {{ consulta.estaturaCm != null ? consulta.estaturaCm + ' cm' : '—' }}</li>
+                  <li><i class="fas fa-heartbeat"></i> {{ consulta.presionSistolica || '—' }}/{{ consulta.presionDiastolica || '—' }} mmHg</li>
+                  <li><i class="fas fa-tint"></i> {{ consulta.saturacionPorcentaje ?? '—' }} %</li>
+                  <li><i class="fas fa-pulse"></i> {{ consulta.frecuenciaCardiaca || '—' }} lpm</li>
+                  <li><i class="fas fa-temperature-high"></i> {{ consulta.temperaturaC ?? '—' }} °C</li>
+                  <li><i class="fas fa-circle"></i> {{ consulta.perimetroCefalicoCm ?? '—' }} cm (PC)</li>
+                  <li><i class="fas fa-apple-alt"></i> {{ consulta.pancita || '—' }}</li>
+                </ul>
+              </div>
+              <div class="detalle-col imc">
+                <h4>IMC</h4>
+                <p class="imc-valor">{{ consulta.imc ?? '—' }}</p>
+                <span class="imc-clasificacion">{{ consulta.clasificacionImc }}</span>
+                <div *ngIf="consulta.alertas.length > 0" class="alertas">
+                  <span *ngFor="let alerta of consulta.alertas" class="alerta">
+                    <i class="fas" [ngClass]="obtenerIconoAlerta(alerta)"></i>
+                    {{ alerta }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="card nueva-consulta">
+        <header>
+          <h3><i class="fas fa-notes-medical"></i> Registrar nueva consulta</h3>
+          <p>Utiliza las plantillas para agilizar el registro y obtén validaciones automáticas.</p>
+        </header>
+
+        <form [formGroup]="consultaForm" (ngSubmit)="registrarConsulta()">
+          <div class="form-grid">
+            <label class="required-field">
+              <span class="label-title">Fecha de consulta <span class="required-asterisk">*</span></span>
+              <input type="date" formControlName="fechaConsulta" required />
+            </label>
+            <label>
+              Plantilla rápida
+              <select formControlName="plantillaId">
+                <option [ngValue]="null">Selecciona una plantilla</option>
+                <option *ngFor="let plantilla of plantillas" [ngValue]="plantilla.plantillaConsultaId">
+                  {{ plantilla.nombre }}
+                </option>
+              </select>
+              <small class="mensaje-plantillas" *ngIf="!cargandoPlantillas && mensajePlantillas">
+                {{ mensajePlantillas }}
+              </small>
+            </label>
+            <label class="required-field">
+              <span class="label-title">Motivo <span class="required-asterisk">*</span></span>
+              <input type="text" formControlName="motivoConsulta" placeholder="Motivo de consulta" required />
+            </label>
+            <label class="required-field">
+              <span class="label-title">Síntomas <span class="required-asterisk">*</span></span>
+              <textarea formControlName="sintomas" rows="2" placeholder="Síntomas principales" required></textarea>
+            </label>
+            <label class="required-field">
+              <span class="label-title">Diagnóstico <span class="required-asterisk">*</span></span>
+              <textarea formControlName="diagnostico" rows="2" placeholder="Diagnóstico médico" required></textarea>
+            </label>
+            <label class="required-field">
+              <span class="label-title">Tratamiento <span class="required-asterisk">*</span></span>
+              <textarea formControlName="tratamiento" rows="2" placeholder="Indicaciones terapéuticas" required></textarea>
+            </label>
+            <label>
+              Observaciones
+              <textarea formControlName="observaciones" rows="2" placeholder="Notas adicionales"></textarea>
+            </label>
+          </div>
+
+          <div class="examen-fisico">
+            <h4>Examen físico</h4>
+            <div class="examen-grid">
+              <label>
+                <span class="label-title">Peso (kg)</span>
+                <input type="number" formControlName="pesoKg" min="1" step="0.1" placeholder="Ej. 70.5" />
+              </label>
+              <label>
+                <span class="label-title">Estatura (cm)</span>
+                <input type="number" formControlName="estaturaCm" min="40" step="0.5" placeholder="Ej. 165.5" />
+              </label>
+              <label>Temperatura (°C)
+                <input type="number" formControlName="temperaturaC" step="0.1" />
+              </label>
+              <label>
+                <span class="label-title">Saturación (%)</span>
+                <input
+                  type="number"
+                  formControlName="saturacionPorcentaje"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  placeholder="Ej. 97"
+                />
+              </label>
+              <label>Frecuencia cardiaca (lpm)
+                <input type="number" formControlName="frecuenciaCardiaca" />
+              </label>
+              <label>Presión sistólica
+                <input type="number" formControlName="presionSistolica" />
+              </label>
+              <label>Presión diastólica
+                <input type="number" formControlName="presionDiastolica" />
+              </label>
+              <label>Perímetro cefálico (cm)
+                <input type="number" formControlName="perimetroCefalicoCm" step="0.1" placeholder="Ej. 52" />
+              </label>
+              <label>Pancita
+                <input type="text" formControlName="pancita" placeholder="Ej. Blanda, no dolor" />
+              </label>
+            </div>
+
+            <div class="imc-preview" *ngIf="bmiActual !== null">
+              <div>
+                <span class="label">IMC estimado</span>
+                <span class="value">{{ bmiActual }}</span>
+              </div>
+              <div>
+                <span class="label">Clasificación</span>
+                <span class="value">{{ bmiClasificacion }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="alertasConsulta.length > 0" class="alertas-backend">
+            <h4><i class="fas fa-exclamation-circle"></i> Validaciones médicas</h4>
+            <ul>
+              <li *ngFor="let alerta of alertasConsulta">{{ alerta }}</li>
+            </ul>
+          </div>
+
+          <button type="submit" class="btn-success" [disabled]="guardandoConsulta">
+            <i class="fas" [ngClass]="guardandoConsulta ? 'fa-spinner fa-spin' : 'fa-plus-circle'"></i>
+            {{ guardandoConsulta ? 'Registrando consulta...' : 'Registrar consulta' }}
+          </button>
+        </form>
+      </section>
+    </div>
+  </section>
+
+  <ng-template #seleccionaHistoria>
+    <section class="historias-content empty">
+      <div class="empty-state">
+        <i class="fas fa-user-md"></i>
+        <h2>Selecciona un paciente</h2>
+        <p>Elige una historia clínica para ver consultas, antecedentes y registrar nuevas atenciones.</p>
+      </div>
+    </section>
+  </ng-template>
+</div>

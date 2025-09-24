@@ -1,0 +1,562 @@
+<div class="citas-container">
+  <header class="citas-header">
+    <div class="date-controls">
+      <button type="button" class="icon-button" (click)="changeDay(-1)">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+      <div class="date-details">
+        <span class="date-label">{{ selectedDateLabel }}</span>
+        <span class="week-label">Semana: {{ weekRangeLabel }}</span>
+      </div>
+      <button type="button" class="icon-button" (click)="changeDay(1)">
+        <i class="fas fa-chevron-right"></i>
+      </button>
+      <input
+        class="date-picker"
+        type="date"
+        [value]="selectedDateInput"
+        (change)="onDateInputChange($event.target.value)"
+      />
+    </div>
+
+    <div class="view-switcher">
+      <button
+        type="button"
+        *ngFor="let option of viewOptions"
+        [class.active]="view === option.id"
+        (click)="setView(option.id)"
+      >
+        <i class="fas" [ngClass]="option.icon"></i>
+        <span>{{ option.label }}</span>
+      </button>
+    </div>
+  </header>
+
+  <section class="horarios-atencion">
+    <div class="horarios-atencion__header">
+      <div>
+        <h3><i class="fas fa-clock"></i> Horario de atención</h3>
+        <p>Selecciona en el calendario los días laborables y define el horario de inicio y fin de atención.</p>
+      </div>
+    </div>
+
+    <div class="horarios-atencion__contenido">
+      <div class="calendario-mensual">
+        <div class="calendario-mensual__header">
+          <button type="button" class="icon-button" (click)="cambiarMes(-1)">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <span class="calendario-mensual__titulo">{{ etiquetaMesActual }}</span>
+          <button type="button" class="icon-button" (click)="cambiarMes(1)">
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+
+        <div class="calendario-mensual__dias-semana">
+          <span *ngFor="let dia of diasSemana">{{ dia }}</span>
+        </div>
+
+        <div class="calendario-mensual__semanas">
+          <div class="calendario-mensual__semana" *ngFor="let semana of semanasCalendario">
+            <button
+              type="button"
+              *ngFor="let dia of semana"
+              class="calendario-mensual__dia"
+              [class.calendario-mensual__dia--fuera]="!dia.inMonth"
+              [class.calendario-mensual__dia--disponible]="dia.inMonth && !dia.isSelected"
+              [class.calendario-mensual__dia--seleccionado]="dia.isSelected"
+              [class.calendario-mensual__dia--hoy]="dia.isToday"
+              [attr.aria-pressed]="dia.isSelected"
+              (click)="dia.inMonth && toggleDia(dia.iso)"
+            >
+              <span class="calendario-mensual__numero">{{ dia.date.getDate() }}</span>
+            </button>
+          </div>
+        </div>
+
+        <p class="calendario-mensual__indicacion">Haz clic sobre los días laborables para agregarlos.</p>
+      </div>
+
+      <form [formGroup]="horariosForm" (ngSubmit)="guardarHorarios()" class="horarios-atencion__form">
+        <h4 class="horario-dias__titulo">Apertura</h4>
+
+        <div formArrayName="dias" class="horario-dias">
+          <div class="horario-dias__empty" *ngIf="!diasSeleccionadosControls.length">
+            Aún no hay días registrados. Selecciona en el calendario los días en los que atenderá el consultorio.
+          </div>
+
+          <div
+            class="horario-dia"
+            *ngFor="let diaGroup of diasSeleccionadosControls; let i = index"
+            [formGroupName]="i"
+          >
+            <header class="horario-dia__header">
+              <h4 class="horario-dia__titulo">
+                <span class="horario-dia__indice">{{ i }}</span>
+                <span class="horario-dia__fecha">{{ formatSelectedDate(diaGroup.get('fecha')?.value) }}</span>
+              </h4>
+              <button
+                type="button"
+                class="icon-button icon-button--small"
+                (click)="eliminarDia(i, { origen: 'boton' })"
+                [disabled]="estaEliminandoDia(diaGroup)"
+              >
+                <i class="fas" [ngClass]="estaEliminandoDia(diaGroup) ? 'fa-spinner fa-spin' : 'fa-times'"></i>
+              </button>
+            </header>
+
+            <div class="horario-dia__campos">
+              <label>
+                Inicio de atención
+                <input type="time" formControlName="horaInicio" step="1800" />
+              </label>
+              <label>
+                Fin de atención
+                <input type="time" formControlName="horaFin" step="1800" />
+              </label>
+            </div>
+
+            <div class="horario-dia__errores" *ngIf="diaGroup.invalid && (diaGroup.dirty || diaGroup.touched)">
+              <span *ngIf="diaGroup.hasError('rangoInvalido')">
+                Verifica que la hora de fin sea posterior a la de inicio y respete intervalos de 30 minutos.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <p class="horario-dias__nota" *ngIf="diasSeleccionadosControls.length">
+          Puedes editar las horas directamente en los campos, guardar los cambios o eliminar un día con el icono de cierre.
+        </p>
+
+        <div class="horarios-atencion__feedback" *ngIf="mensajeHorarioError || mensajeHorarioExito">
+          <span class="mensaje-error" *ngIf="mensajeHorarioError">{{ mensajeHorarioError }}</span>
+          <span class="mensaje-exito" *ngIf="mensajeHorarioExito">{{ mensajeHorarioExito }}</span>
+        </div>
+
+        <div class="horarios-atencion__actions">
+          <button type="submit" class="btn-guardar-horario" [disabled]="guardandoHorarios">
+            <i class="fas" [ngClass]="guardandoHorarios ? 'fa-spinner fa-spin' : 'fa-save'"></i>
+            {{ guardandoHorarios ? 'Guardando...' : 'Guardar días y horarios' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section class="nueva-cita">
+    <div class="nueva-cita__header">
+      <h3><i class="fas fa-calendar-plus"></i> Programar nueva cita</h3>
+      <p>Registra una cita seleccionando un paciente existente o ingresando uno nuevo en un solo paso.</p>
+    </div>
+
+    <form [formGroup]="citaForm" (ngSubmit)="programarCita()" class="nueva-cita__form">
+      <div class="modo-paciente">
+        <label>
+          <input type="radio" formControlName="modoPaciente" value="existente">
+          Paciente existente
+        </label>
+        <label>
+          <input type="radio" formControlName="modoPaciente" value="nuevo">
+          Paciente nuevo
+        </label>
+      </div>
+
+      <div class="paciente-existente" *ngIf="modoPaciente === 'existente'">
+        <label class="required-label">
+          <span>Selecciona un paciente</span>
+          <span class="required-indicator" *ngIf="modoPaciente === 'existente'">*</span>
+          <select
+            formControlName="pacienteId"
+            [disabled]="cargandoPacientes"
+            [attr.required]="modoPaciente === 'existente' ? true : null"
+            [attr.aria-required]="modoPaciente === 'existente' ? 'true' : null"
+          >
+            <option [ngValue]="null">Selecciona un paciente</option>
+            <option *ngFor="let paciente of pacientes" [ngValue]="paciente.id ?? null">
+              {{ paciente.nombreCompleto || (paciente.nombres + ' ' + paciente.apellidos) }}
+            </option>
+          </select>
+        </label>
+        <small class="ayuda" *ngIf="cargandoPacientes">Cargando pacientes...</small>
+      </div>
+
+      <div class="nuevo-paciente" formGroupName="nuevoPaciente" *ngIf="modoPaciente === 'nuevo'">
+        <div class="nuevo-paciente-grid">
+          <label class="required-label">
+            <span>Cédula</span>
+            <span class="required-indicator" *ngIf="modoPaciente === 'nuevo'">*</span>
+            <input
+              type="text"
+              formControlName="cedula"
+              maxlength="10"
+              inputmode="numeric"
+              [attr.required]="modoPaciente === 'nuevo' ? true : null"
+              [attr.aria-required]="modoPaciente === 'nuevo' ? 'true' : null"
+            >
+          </label>
+          <label class="required-label">
+            <span>Nombres</span>
+            <span class="required-indicator" *ngIf="modoPaciente === 'nuevo'">*</span>
+            <input
+              type="text"
+              formControlName="nombres"
+              [attr.required]="modoPaciente === 'nuevo' ? true : null"
+              [attr.aria-required]="modoPaciente === 'nuevo' ? 'true' : null"
+            >
+          </label>
+          <label class="required-label">
+            <span>Apellidos</span>
+            <span class="required-indicator" *ngIf="modoPaciente === 'nuevo'">*</span>
+            <input
+              type="text"
+              formControlName="apellidos"
+              [attr.required]="modoPaciente === 'nuevo' ? true : null"
+              [attr.aria-required]="modoPaciente === 'nuevo' ? 'true' : null"
+            >
+          </label>
+          <label class="required-label">
+            <span>Fecha de nacimiento</span>
+            <span class="required-indicator" *ngIf="modoPaciente === 'nuevo'">*</span>
+            <input
+              type="date"
+              formControlName="fechaNacimiento"
+              [attr.required]="modoPaciente === 'nuevo' ? true : null"
+              [attr.aria-required]="modoPaciente === 'nuevo' ? 'true' : null"
+            >
+          </label>
+          <label class="required-label">
+            <span>Género</span>
+            <span class="required-indicator" *ngIf="modoPaciente === 'nuevo'">*</span>
+            <select
+              formControlName="genero"
+              [attr.required]="modoPaciente === 'nuevo' ? true : null"
+              [attr.aria-required]="modoPaciente === 'nuevo' ? 'true' : null"
+            >
+              <option value="">Selecciona</option>
+              <option value="M">Masculino</option>
+              <option value="F">Femenino</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </label>
+          <label class="required-label">
+            <span>Teléfono</span>
+            <span class="required-indicator" *ngIf="modoPaciente === 'nuevo'">*</span>
+            <input
+              type="tel"
+              formControlName="telefono"
+              inputmode="tel"
+              maxlength="10"
+              [attr.required]="modoPaciente === 'nuevo' ? true : null"
+              [attr.aria-required]="modoPaciente === 'nuevo' ? 'true' : null"
+            >
+          </label>
+          <label>
+            Correo electrónico
+            <input type="email" formControlName="email">
+          </label>
+        </div>
+      </div>
+
+      <div class="cita-datos">
+        <label class="required-label">
+          <span>Fecha de la cita</span>
+          <span class="required-indicator">*</span>
+          <div
+            #fechaCitaSelector
+            class="fecha-selector"
+            [class.fecha-selector--disabled]="!fechasDisponibles.length"
+            [class.fecha-selector--abierto]="mostrarCalendarioFechaCita"
+          >
+            <button
+              type="button"
+              class="fecha-selector__display"
+              (click)="toggleCalendarioFechaCita($event)"
+              [disabled]="!fechasDisponibles.length"
+              [class.fecha-selector__display--invalid]="
+                citaForm.get('fecha')?.invalid && (citaForm.get('fecha')?.dirty || citaForm.get('fecha')?.touched)
+              "
+              aria-haspopup="dialog"
+              [attr.aria-expanded]="mostrarCalendarioFechaCita"
+            >
+              <i class="fas fa-calendar-alt"></i>
+              <span>{{ fechaCitaSeleccionadaLabel }}</span>
+            </button>
+            <input
+              type="date"
+              formControlName="fecha"
+              class="fecha-selector__input-oculta"
+              (change)="onDateInputChange($event.target.value)"
+              tabindex="-1"
+              aria-hidden="true"
+            >
+            <div
+              class="fecha-selector__calendario"
+              *ngIf="mostrarCalendarioFechaCita"
+              (click)="$event.stopPropagation()"
+            >
+              <div class="fecha-selector__calendario-header">
+                <button
+                  type="button"
+                  class="icon-button"
+                  (click)="cambiarMesCalendarioFechaCita(-1, $event)"
+                  [disabled]="!puedeCambiarMesCalendarioFechaCita(-1)"
+                  aria-label="Mes anterior"
+                >
+                  <i class="fas fa-chevron-left"></i>
+                </button>
+                <span class="fecha-selector__titulo">{{ etiquetaMesCalendarioFechaCita }}</span>
+                <button
+                  type="button"
+                  class="icon-button"
+                  (click)="cambiarMesCalendarioFechaCita(1, $event)"
+                  [disabled]="!puedeCambiarMesCalendarioFechaCita(1)"
+                  aria-label="Mes siguiente"
+                >
+                  <i class="fas fa-chevron-right"></i>
+                </button>
+                <button
+                  type="button"
+                  class="icon-button icon-button--close"
+                  aria-label="Cerrar calendario"
+                  (click)="cerrarCalendarioFechaCita($event)"
+                >
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+              <div class="fecha-selector__dias-semana">
+                <span *ngFor="let dia of diasSemana">{{ dia }}</span>
+              </div>
+              <div class="fecha-selector__semanas">
+                <div class="fecha-selector__semana" *ngFor="let semana of semanasCalendarioCita">
+                  <button
+                    type="button"
+                    *ngFor="let dia of semana"
+                    class="fecha-selector__dia"
+                    [class.fecha-selector__dia--fuera]="!dia.inMonth"
+                    [class.fecha-selector__dia--hoy]="dia.isToday"
+                    [class.fecha-selector__dia--disponible]="dia.inMonth && dia.isAvailable"
+                    [class.fecha-selector__dia--seleccionado]="dia.isSelected"
+                    [disabled]="!dia.inMonth || !dia.isAvailable"
+                    (click)="seleccionarFechaCalendarioCita(dia, $event)"
+                  >
+                    {{ dia.date.getDate() }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <small
+            class="campo-error"
+            *ngIf="
+              citaForm.get('fecha')?.hasError('fechaNoDisponible') &&
+              (citaForm.get('fecha')?.touched || citaForm.get('fecha')?.dirty)
+            "
+          >
+            Solo puedes programar citas en los días configurados en «Apertura».
+          </small>
+          <small class="ayuda" *ngIf="!fechasDisponibles.length">
+            Configura primero los días laborables en la sección «Apertura».
+          </small>
+        </label>
+        <label class="required-label">
+          <span>Hora de inicio</span>
+          <span class="required-indicator">*</span>
+          <select
+            formControlName="horaInicio"
+            required
+            aria-required="true"
+            (change)="onHoraInicioSelected($any($event.target).value)"
+            [disabled]="!availableSlots.length"
+          >
+            <option value="">Selecciona un horario</option>
+            <option *ngFor="let slot of availableSlots" [value]="slot.start">
+              {{ slot.start }} - {{ slot.end }}
+            </option>
+          </select>
+        </label>
+        <label class="required-label">
+          <span>Hora de fin</span>
+          <span class="required-indicator">*</span>
+          <input type="time" formControlName="horaFin" required aria-required="true" readonly>
+        </label>
+      </div>
+
+      <div class="cita-detalles">
+        <label>
+          Motivo
+          <input type="text" formControlName="motivo" placeholder="Motivo de la consulta">
+        </label>
+        <label>
+          Notas adicionales
+          <textarea formControlName="notas" rows="2" placeholder="Indicaciones o recordatorios"></textarea>
+        </label>
+      </div>
+
+      <div class="form-feedback" *ngIf="mensajeCitaError || mensajeCitaExito">
+        <p class="mensaje-error" *ngIf="mensajeCitaError">{{ mensajeCitaError }}</p>
+        <p class="mensaje-exito" *ngIf="mensajeCitaExito">{{ mensajeCitaExito }}</p>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-registrar" [disabled]="guardandoCita">
+          <i class="fas" [ngClass]="guardandoCita ? 'fa-spinner fa-spin' : 'fa-save'"></i>
+          {{ guardandoCita ? 'Guardando...' : 'Registrar cita' }}
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section class="stats" *ngIf="stats as resumen">
+    <div class="stat-card stat-card--total">
+      <div class="stat-title">Citas del día</div>
+      <div class="stat-value">{{ resumen.total }}</div>
+      <div class="stat-subtitle">{{ getDisponibilidadTexto() }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Programadas</div>
+      <div class="stat-value">{{ resumen.programadas }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Confirmadas</div>
+      <div class="stat-value">{{ resumen.confirmadas }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">En curso</div>
+      <div class="stat-value">{{ resumen.enCurso }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Completadas</div>
+      <div class="stat-value">{{ resumen.completadas }}</div>
+    </div>
+  </section>
+
+  <section class="available" *ngIf="view === 'agenda'">
+    <h3>Horarios disponibles</h3>
+    <ng-container *ngIf="availableSlots.length; else sinDisponibilidad">
+      <span class="slot-chip" *ngFor="let slot of availableSlots">{{ slot.start }} - {{ slot.end }}</span>
+    </ng-container>
+    <ng-template #sinDisponibilidad>
+      <p class="empty">No hay horarios disponibles para este día. Revisa la configuración de atención o selecciona otra fecha.</p>
+    </ng-template>
+  </section>
+
+  <section class="view" *ngIf="view === 'agenda'">
+    <div *ngIf="loadingDaily" class="loader">Cargando agenda diaria...</div>
+    <table class="citas-table" *ngIf="!loadingDaily">
+      <thead>
+        <tr>
+          <th>Hora</th>
+          <th>Paciente</th>
+          <th>Motivo</th>
+          <th>Estado</th>
+          <th>Acciones rápidas</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let cita of dailyAppointments; trackBy: trackByCita">
+          <td>
+            <div class="time-range">
+              <span>{{ cita.horaInicio }}</span>
+              <span class="separator">→</span>
+              <span>{{ cita.horaFin }}</span>
+            </div>
+          </td>
+          <td>
+            <div class="paciente">
+              <strong>{{ cita.pacienteNombre || 'Paciente sin nombre' }}</strong>
+              <small>#{{ cita.pacienteId }}</small>
+            </div>
+          </td>
+          <td>
+            <div class="motivo">{{ cita.motivo || 'Sin motivo registrado' }}</div>
+            <small class="notas" *ngIf="cita.notas">{{ cita.notas }}</small>
+          </td>
+          <td>
+            <span class="badge" [ngClass]="getEstadoClase(cita.estado)">{{ cita.estado }}</span>
+          </td>
+          <td>
+            <div class="acciones">
+              <button
+                type="button"
+                class="action-button"
+                *ngFor="let action of getActions(cita)"
+                [disabled]="isUpdating(cita.citaId)"
+                [ngClass]="'action-button--' + action.theme"
+                (click)="executeAction(cita, action)"
+              >
+                <i class="fas" [ngClass]="action.icon"></i>
+                <span>{{ action.label }}</span>
+              </button>
+              <button
+                type="button"
+                class="action-button action-button--danger"
+                [disabled]="isUpdating(cita.citaId)"
+                (click)="eliminarCita(cita)"
+              >
+                <i class="fas fa-trash-alt"></i>
+                <span>Eliminar</span>
+              </button>
+              <span class="action-loading" *ngIf="isUpdating(cita.citaId)">
+                <i class="fas fa-spinner fa-spin"></i>
+              </span>
+            </div>
+          </td>
+        </tr>
+        <tr *ngIf="!dailyAppointments.length">
+          <td colspan="5" class="empty">No hay citas registradas para este día.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="view" *ngIf="view === 'semana'">
+    <div *ngIf="loadingWeekly" class="loader">Cargando calendario semanal...</div>
+    <div class="week-grid" *ngIf="!loadingWeekly">
+      <div class="day-card" *ngFor="let dia of weeklyAgenda">
+        <header>
+          <span class="day-name">{{ dia.dia }}</span>
+          <span class="day-date">{{ dia.fecha | date: 'dd/MM' }}</span>
+        </header>
+        <ul *ngIf="dia.citas.length; else diaVacio">
+          <li *ngFor="let cita of dia.citas; trackBy: trackByCita">
+            <div class="time">{{ cita.horaInicio }} - {{ cita.horaFin }}</div>
+            <div class="info">
+              <div class="name">{{ cita.pacienteNombre || 'Paciente sin nombre' }}</div>
+              <div class="state badge" [ngClass]="getEstadoClase(cita.estado)">{{ cita.estado }}</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <ng-template #diaVacio>
+        <p class="empty">Sin citas para este día.</p>
+      </ng-template>
+    </div>
+  </section>
+
+  <section class="view" *ngIf="view === 'lista'">
+    <div *ngIf="loadingList" class="loader">Cargando lista completa...</div>
+    <table class="citas-table" *ngIf="!loadingList">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Hora</th>
+          <th>Paciente</th>
+          <th>Motivo</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let cita of allAppointments; trackBy: trackByCita">
+          <td>{{ cita.fecha | date: 'dd/MM/yyyy' }}</td>
+          <td>{{ cita.horaInicio }} - {{ cita.horaFin }}</td>
+          <td>{{ cita.pacienteNombre || ('Paciente #' + cita.pacienteId) }}</td>
+          <td>{{ cita.motivo || 'Sin motivo' }}</td>
+          <td><span class="badge" [ngClass]="getEstadoClase(cita.estado)">{{ cita.estado }}</span></td>
+        </tr>
+        <tr *ngIf="!allAppointments.length">
+          <td colspan="5" class="empty">No hay citas registradas.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</div>

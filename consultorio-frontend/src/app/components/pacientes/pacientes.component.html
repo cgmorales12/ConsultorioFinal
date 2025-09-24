@@ -1,0 +1,418 @@
+
+<div class="pacientes-container">
+  <!-- Header del módulo -->
+  <div class="header-section">
+    <h2>
+      <i class="fas fa-users"></i>
+      Gestión de Pacientes - Consultorio Luz y Vida
+    </h2>
+    <button class="btn btn-primary" (click)="nuevoPaciente()">
+      <i class="fas fa-plus"></i>
+      Nuevo Paciente
+    </button>
+  </div>
+
+  <!-- Sección de búsqueda -->
+  <div class="search-section">
+    <div class="search-box">
+      <i class="fas fa-search"></i>
+      <input
+        type="text"
+        [(ngModel)]="terminoBusqueda"
+        (keyup)="buscarPacientes()"
+        placeholder="Buscar por nombre, apellido o cédula..."
+        class="search-input"
+      >
+    </div>
+  </div>
+
+  <!-- Modal del formulario -->
+  <div class="modal-overlay" [class.show]="mostrarFormulario" *ngIf="mostrarFormulario">
+    <div class="modal-content">
+      <!-- Header del modal -->
+      <div class="modal-header">
+        <h3>
+          <i class="fas fa-user-plus"></i>
+          {{ pacienteSeleccionado ? 'Editar' : 'Nuevo' }} Paciente
+        </h3>
+        <button class="close-btn" (click)="cerrarFormulario()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <!-- Formulario -->
+      <form [formGroup]="formularioPaciente" (ngSubmit)="guardarPaciente()" class="patient-form">
+        <!-- Información Personal -->
+        <div class="form-section">
+          <h4><i class="fas fa-user"></i> Información Personal</h4>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cedula" class="required-label">
+                Cédula
+                <span class="required-indicator">*</span>
+              </label>
+              <input
+                type="text"
+                id="cedula"
+                formControlName="cedula"
+                maxlength="10"
+                class="form-control"
+                required
+                aria-required="true"
+                [class.error]="formularioPaciente.get('cedula')?.invalid && formularioPaciente.get('cedula')?.touched"
+                placeholder="1717123456"
+              >
+              <small class="error-message" *ngIf="obtenerError('cedula')">
+                {{ obtenerError('cedula') }}
+              </small>
+            </div>
+
+            <div class="form-group">
+              <label for="nombres" class="required-label">
+                Nombres
+                <span class="required-indicator">*</span>
+              </label>
+              <input
+                type="text"
+                id="nombres"
+                formControlName="nombres"
+                class="form-control"
+                required
+                aria-required="true"
+                [class.error]="formularioPaciente.get('nombres')?.invalid && formularioPaciente.get('nombres')?.touched"
+                placeholder="María José"
+              >
+              <small class="error-message" *ngIf="obtenerError('nombres')">
+                {{ obtenerError('nombres') }}
+              </small>
+            </div>
+
+            <div class="form-group">
+              <label for="apellidos" class="required-label">
+                Apellidos
+                <span class="required-indicator">*</span>
+              </label>
+              <input
+                type="text"
+                id="apellidos"
+                formControlName="apellidos"
+                class="form-control"
+                required
+                aria-required="true"
+                [class.error]="formularioPaciente.get('apellidos')?.invalid && formularioPaciente.get('apellidos')?.touched"
+                placeholder="González Pérez"
+              >
+              <small class="error-message" *ngIf="obtenerError('apellidos')">
+                {{ obtenerError('apellidos') }}
+              </small>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="fechaNacimiento" class="required-label">
+                Fecha de Nacimiento
+                <span class="required-indicator">*</span>
+              </label>
+              <input
+                type="date"
+                id="fechaNacimiento"
+                formControlName="fechaNacimiento"
+                class="form-control"
+                required
+                aria-required="true"
+                [max]="maxFechaNacimiento"
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="genero" class="required-label">
+                Género
+                <span class="required-indicator">*</span>
+              </label>
+              <select id="genero" formControlName="genero" class="form-control" required aria-required="true">
+                <option value="">Seleccionar</option>
+                <option value="M">Masculino</option>
+                <option value="F">Femenino</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="estadoCivil" class="required-label">
+                Estado Civil
+                <span class="required-indicator">*</span>
+              </label>
+              <select id="estadoCivil" formControlName="estadoCivil" class="form-control" required aria-required="true">
+                <option value="">Seleccionar</option>
+                <option value="Soltero">Soltero/a</option>
+                <option value="Casado">Casado/a</option>
+                <option value="Divorciado">Divorciado/a</option>
+                <option value="Viudo">Viudo/a</option>
+                <option value="Union Libre">Unión Libre</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Información de Contacto -->
+        <div class="form-section">
+          <h4><i class="fas fa-phone"></i> Información de Contacto</h4>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="telefono" class="required-label">
+                Teléfono
+                <span class="required-indicator">*</span>
+              </label>
+              <input
+                type="tel"
+                id="telefono"
+                formControlName="telefono"
+                class="form-control"
+                maxlength="10"
+                inputmode="tel"
+                required
+                aria-required="true"
+                [class.error]="formularioPaciente.get('telefono')?.invalid && formularioPaciente.get('telefono')?.touched"
+                placeholder="0987654321"
+              >
+              <small class="error-message" *ngIf="obtenerError('telefono')">
+                {{ obtenerError('telefono') }}
+              </small>
+            </div>
+
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input
+                type="email"
+                id="email"
+                formControlName="email"
+                class="form-control"
+                [class.error]="formularioPaciente.get('email')?.invalid && formularioPaciente.get('email')?.touched"
+                placeholder="correo@ejemplo.com"
+              >
+              <small class="error-message" *ngIf="obtenerError('email')">
+                {{ obtenerError('email') }}
+              </small>
+            </div>
+
+            <div class="form-group">
+              <label for="ocupacion">Ocupación</label>
+              <input
+                type="text"
+                id="ocupacion"
+                formControlName="ocupacion"
+                class="form-control"
+                placeholder="Profesión u ocupación"
+              >
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group full-width">
+              <label for="direccion" class="required-label">
+                Dirección
+                <span class="required-indicator">*</span>
+              </label>
+              <input
+                type="text"
+                id="direccion"
+                formControlName="direccion"
+                class="form-control"
+                required
+                aria-required="true"
+                [class.error]="formularioPaciente.get('direccion')?.invalid && formularioPaciente.get('direccion')?.touched"
+                placeholder="Malchinguí, Calle Principal 123"
+              >
+              <small class="error-message" *ngIf="obtenerError('direccion')">
+                {{ obtenerError('direccion') }}
+              </small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contacto de Emergencia -->
+        <div class="form-section">
+          <h4><i class="fas fa-exclamation-triangle"></i> Contacto de Emergencia</h4>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="contactoEmergenciaNombre">Nombre (opcional)</label>
+              <input
+                type="text"
+                id="contactoEmergenciaNombre"
+                formControlName="contactoEmergenciaNombre"
+                class="form-control"
+                placeholder="Nombre completo"
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="contactoEmergenciaTelefono">Teléfono (opcional)</label>
+              <input
+                type="tel"
+                id="contactoEmergenciaTelefono"
+                formControlName="contactoEmergenciaTelefono"
+                class="form-control"
+                placeholder="0987654322"
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="contactoEmergenciaRelacion">Relación (opcional)</label>
+              <input
+                type="text"
+                id="contactoEmergenciaRelacion"
+                formControlName="contactoEmergenciaRelacion"
+                class="form-control"
+                placeholder="Esposo, Hijo, etc."
+              >
+            </div>
+          </div>
+        </div>
+
+        <!-- Información Médica -->
+        <div class="form-section">
+          <h4><i class="fas fa-heartbeat"></i> Información Médica</h4>
+          
+          <div class="form-row">
+            <div class="form-group full-width">
+              <label for="alergias">Alergias (separar con comas)</label>
+              <input
+                type="text"
+                id="alergias"
+                formControlName="alergias"
+                class="form-control"
+                placeholder="Penicilina, Aspirina, etc."
+              >
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group full-width">
+              <label for="medicamentosActuales">Medicamentos Actuales (separar con comas)</label>
+              <input
+                type="text"
+                id="medicamentosActuales"
+                formControlName="medicamentosActuales"
+                class="form-control"
+                placeholder="Omeprazol 20mg, Atenolol 50mg, etc."
+              >
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group full-width">
+              <label for="enfermedadesCronicas">Enfermedades Crónicas (separar con comas)</label>
+              <input
+                type="text"
+                id="enfermedadesCronicas"
+                formControlName="enfermedadesCronicas"
+                class="form-control"
+                placeholder="Hipertensión, Diabetes, etc."
+              >
+            </div>
+          </div>
+        </div>
+
+        <!-- Botones del formulario -->
+        <div class="form-hint" *ngIf="!esFormularioValido">
+          <i class="fas fa-info-circle"></i>
+          <div class="form-hint__content">
+            <p>Completa los campos obligatorios para habilitar el botón Guardar:</p>
+            <ul>
+              <li *ngFor="let instruccion of instruccionesCamposPendientes">
+                {{ instruccion }}
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" (click)="cerrarFormulario()">
+            <i class="fas fa-times"></i>
+            Cancelar
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="!esFormularioValido">
+            <i class="fas fa-save"></i>
+            {{ pacienteSeleccionado ? 'Actualizar' : 'Guardar' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Lista de Pacientes -->
+  <div class="patients-section">
+    <div class="section-header">
+      <h3>Pacientes Registrados ({{ pacientesFiltrados.length }})</h3>
+    </div>
+
+    <!-- Loading spinner -->
+    <div class="loading" *ngIf="cargando">
+      <i class="fas fa-spinner fa-spin"></i>
+      <p>Cargando pacientes...</p>
+    </div>
+
+    <!-- Grid de pacientes -->
+    <div class="patients-grid" *ngIf="!cargando && pacientesFiltrados.length > 0">
+      <div class="patient-card" *ngFor="let paciente of pacientesFiltrados">
+        <div class="patient-avatar">
+          <i class="fas" [class.fa-mars]="paciente.genero === 'M'" [class.fa-venus]="paciente.genero === 'F'"></i>
+        </div>
+
+        <div class="patient-info">
+          <h4>{{ paciente.nombres }} {{ paciente.apellidos }}</h4>
+          <div class="patient-details">
+            <p><i class="fas fa-id-card"></i> {{ paciente.cedula }}</p>
+            <p><i class="fas fa-birthday-cake"></i> {{ paciente.edad }}</p>
+            <p><i class="fas fa-phone"></i> {{ paciente.telefono }}</p>
+            <p><i class="fas fa-map-marker-alt"></i> {{ paciente.direccion }}</p>
+            <p *ngIf="paciente.email"><i class="fas fa-envelope"></i> {{ paciente.email }}</p>
+          </div>
+
+          <!-- Alertas médicas -->
+          <div class="medical-alerts" *ngIf="paciente.alergias?.length || paciente.enfermedadesCronicas?.length">
+            <span
+              class="alert-badge allergy"
+              *ngIf="paciente.alergias?.length"
+              [title]="paciente.alergias?.join(', ')"
+            >
+              <i class="fas fa-allergies"></i>
+              Alergias
+            </span>
+            <span
+              class="alert-badge condition"
+              *ngIf="paciente.enfermedadesCronicas?.length"
+              [title]="paciente.enfermedadesCronicas?.join(', ')"
+            >
+              <i class="fas fa-notes-medical"></i>
+              Condiciones crónicas
+            </span>
+          </div>
+
+          <div class="patient-actions">
+            <button type="button" class="btn btn-outline-primary" (click)="editarPaciente(paciente)">
+              <i class="fas fa-edit"></i>
+              Editar
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-danger"
+              (click)="eliminarPaciente(paciente.id, paciente.nombres + ' ' + paciente.apellidos)"
+            >
+              <i class="fas fa-trash"></i>
+              Eliminar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="empty-state" *ngIf="!cargando && pacientesFiltrados.length === 0">
+      <i class="fas fa-user-plus"></i>
+      <p>No se encontraron pacientes. Registra uno nuevo para comenzar.</p>
+    </div>
+  </div>
+</div>

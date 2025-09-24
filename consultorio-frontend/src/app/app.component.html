@@ -1,0 +1,37 @@
+
+<div class="app-container">
+  <!-- Navegación principal -->
+  <nav class="main-nav">
+    <div class="nav-brand">
+      <i class="fas fa-clinic-medical"></i>
+      <h1>Consultorio Luz y Vida</h1>
+      <span class="location">Malchinguí</span>
+    </div>
+    
+    <div class="nav-menu">
+      <a routerLink="/citas" routerLinkActive="active" class="nav-link">
+        <i class="fas fa-calendar-alt"></i>
+        Citas
+      </a>
+      <a routerLink="/pacientes" routerLinkActive="active" class="nav-link">
+        <i class="fas fa-users"></i>
+        Pacientes
+      </a>
+      <a routerLink="/historias-clinicas" routerLinkActive="active" class="nav-link">
+        <i class="fas fa-file-medical"></i>
+        Historias clínicas
+      </a>
+      
+    </div>
+  </nav>
+
+  <!-- Contenido principal -->
+  <main class="main-content">
+    <router-outlet></router-outlet>
+  </main>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <p>&copy; 2025 Consultorio Médico Luz y Vida - Malchinguí, Ecuador</p>
+  </footer>
+</div>
