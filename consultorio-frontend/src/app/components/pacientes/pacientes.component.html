@@ -151,11 +151,54 @@
                 <option value="Viudo">Viudo/a</option>
                 <option value="Union Libre">Unión Libre</option>
               </select>
-            </div>
           </div>
         </div>
 
-        <!-- Información de Contacto -->
+        <div class="form-row photo-row">
+          <div class="form-group full-width photo-field">
+            <label for="fotoPaciente">
+              Foto del paciente
+            </label>
+            <p class="photo-instructions">Sube una imagen o toma una foto directamente desde tu dispositivo.</p>
+            <div class="photo-actions">
+              <ng-container *ngIf="fotoPreview; else sinFoto">
+                <div class="photo-preview">
+                  <img [src]="fotoPreview" alt="Foto del paciente">
+                  <button type="button" class="btn remove-photo" (click)="quitarFoto()">
+                    <i class="fas fa-times"></i>
+                    Quitar foto
+                  </button>
+                </div>
+              </ng-container>
+              <ng-template #sinFoto>
+                <div class="photo-placeholder">
+                  <i class="fas fa-camera"></i>
+                  <span>Sin foto</span>
+                </div>
+              </ng-template>
+              <div class="photo-inputs">
+                <label class="btn btn-secondary upload-btn" for="fotoPaciente">
+                  <i class="fas fa-upload"></i>
+                  <span>{{ fotoPreview ? 'Cambiar foto' : 'Subir o tomar foto' }}</span>
+                  <input
+                    id="fotoPaciente"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    (change)="onFotoSeleccionada($event)"
+                  >
+                </label>
+                <small class="photo-help">Tamaño máximo recomendado tras el procesamiento: 3 MB. Formatos compatibles: JPG, PNG, HEIC.</small>
+                <small class="photo-loading" *ngIf="fotoCargando">
+                  <i class="fas fa-spinner fa-spin"></i> Procesando imagen...
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Información de Contacto -->
         <div class="form-section">
           <h4><i class="fas fa-phone"></i> Información de Contacto</h4>
           

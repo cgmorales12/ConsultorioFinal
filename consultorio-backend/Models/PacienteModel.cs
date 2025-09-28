@@ -57,6 +57,9 @@ namespace ConsultorioMedico.API.Models
         [StringLength(500)]
         public string? Alergias { get; set; }
 
+        [Column(TypeName = "longtext")]
+        public string? FotoUrl { get; set; }
+
         public bool Estado { get; set; } = true;
 
         public DateTime FechaRegistro { get; set; } = DateTime.Now;

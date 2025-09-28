@@ -25,4 +25,5 @@ export interface Paciente {
   fechaRegistro?: Date;
   activo: boolean;
   nombreCompleto?: string;
+  fotoUrl?: string;
 }

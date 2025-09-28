@@ -65,6 +65,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowAngular");
+app.UseStaticFiles();
 
 
 // app.UseAuthentication();

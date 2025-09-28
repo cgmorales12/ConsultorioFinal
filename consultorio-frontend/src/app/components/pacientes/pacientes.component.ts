@@ -22,6 +22,8 @@ export class PacientesComponent implements OnInit {
   pacientesFiltrados: Paciente[] = [];
   cargando = false;
   maxFechaNacimiento = new Date().toISOString().split('T')[0];
+  fotoPreview: string | null = null;
+  fotoCargando = false;
   private readonly instruccionesCampos: Record<string, string> = {
     cedula: 'Cédula: ingresa 10 dígitos numéricos sin espacios ni guiones.',
     nombres: 'Nombres: escribe al menos dos caracteres alfabéticos.',
@@ -62,7 +64,8 @@ export class PacientesComponent implements OnInit {
       contactoEmergenciaRelacion: [''],
       alergias: [''],
       medicamentosActuales: [''],
-      enfermedadesCronicas: ['']
+      enfermedadesCronicas: [''],
+      foto: ['']
     });
   }
 
@@ -98,6 +101,8 @@ export class PacientesComponent implements OnInit {
   nuevoPaciente(): void {
     this.pacienteSeleccionado = null;
     this.formularioPaciente.reset();
+    this.fotoPreview = null;
+    this.fotoCargando = false;
     this.mostrarFormulario = true;
   }
 
@@ -122,6 +127,11 @@ export class PacientesComponent implements OnInit {
       medicamentosActuales: paciente.medicamentosActuales?.join(', '),
       enfermedadesCronicas: paciente.enfermedadesCronicas?.join(', ')
     });
+    this.formularioPaciente.patchValue({
+      foto: paciente.fotoUrl ?? ''
+    });
+    this.fotoPreview = paciente.fotoUrl ?? null;
+    this.fotoCargando = false;
     this.mostrarFormulario = true;
   }
 
@@ -162,7 +172,8 @@ export class PacientesComponent implements OnInit {
       enfermedadesCronicas: formData.enfermedadesCronicas ? formData.enfermedadesCronicas.split(',').map((e: string) => e.trim()) : [],
       fechaRegistro: this.pacienteSeleccionado?.fechaRegistro || new Date(),
       activo: this.pacienteSeleccionado?.activo ?? true,
-      email: formData.email
+      email: formData.email,
+      fotoUrl: formData.foto || undefined
     };
 
     if (this.pacienteSeleccionado) {
@@ -236,6 +247,60 @@ export class PacientesComponent implements OnInit {
     this.mostrarFormulario = false;
     this.pacienteSeleccionado = null;
     this.formularioPaciente.reset();
+    this.fotoPreview = null;
+    this.fotoCargando = false;
+  }
+
+  async onFotoSeleccionada(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) {
+      return;
+    }
+
+    const archivo = input.files[0];
+    const esImagen = archivo.type.startsWith('image/');
+    const tamanoMaximo = 5 * 1024 * 1024; // 5 MB
+
+    if (!esImagen) {
+      alert('Selecciona un archivo de imagen válido (JPG, PNG, HEIC, etc.).');
+      input.value = '';
+      return;
+    }
+
+    if (archivo.size > tamanoMaximo) {
+      alert('La imagen es demasiado pesada. Selecciona una foto menor a 5 MB.');
+      input.value = '';
+      return;
+    }
+
+    this.fotoCargando = true;
+
+    try {
+      const resultado = await this.procesarImagen(archivo);
+      const tamanoProcesado = this.calcularTamanoDesdeDataUrl(resultado);
+      const tamanoMaximoProcesado = 3 * 1024 * 1024; // 3 MB
+
+      if (tamanoProcesado > tamanoMaximoProcesado) {
+        alert('La imagen procesada sigue siendo demasiado pesada. Selecciona una foto menor a 3 MB.');
+        this.formularioPaciente.patchValue({ foto: '' });
+        this.fotoPreview = null;
+      } else {
+        this.fotoPreview = resultado;
+        this.formularioPaciente.patchValue({ foto: resultado });
+      }
+    } catch (error) {
+      console.error('Error al procesar la imagen:', error);
+      alert('No se pudo procesar la imagen seleccionada. Intenta con otra foto.');
+    } finally {
+      this.fotoCargando = false;
+      input.value = '';
+    }
+  }
+
+  quitarFoto(): void {
+    this.fotoPreview = null;
+    this.fotoCargando = false;
+    this.formularioPaciente.patchValue({ foto: '' });
   }
 
   // Getter para validación del formulario
@@ -300,5 +365,66 @@ export class PacientesComponent implements OnInit {
     });
 
     return mensajes.length ? mensajes : ['Verifica los datos resaltados en rojo.'];
+  }
+
+  private async procesarImagen(archivo: File): Promise<string> {
+    const dataUrl = await this.leerArchivoComoDataUrl(archivo);
+    return this.redimensionarImagenSiEsNecesario(dataUrl);
+  }
+
+  private leerArchivoComoDataUrl(archivo: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const lector = new FileReader();
+      lector.onload = () => resolve(lector.result as string);
+      lector.onerror = () => reject(new Error('No se pudo leer el archivo de imagen.'));
+      lector.readAsDataURL(archivo);
+    });
+  }
+
+  private redimensionarImagenSiEsNecesario(dataUrl: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const imagen = new Image();
+      imagen.onload = () => {
+        const maxDimension = 1024;
+        let { width, height } = imagen;
+
+        if (width <= maxDimension && height <= maxDimension) {
+          resolve(dataUrl);
+          return;
+        }
+
+        if (width > height) {
+          const ratio = maxDimension / width;
+          width = maxDimension;
+          height = Math.round(height * ratio);
+        } else {
+          const ratio = maxDimension / height;
+          height = maxDimension;
+          width = Math.round(width * ratio);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const contexto = canvas.getContext('2d');
+
+        if (!contexto) {
+          resolve(dataUrl);
+          return;
+        }
+
+        contexto.drawImage(imagen, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+
+      imagen.onerror = () => reject(new Error('No se pudo procesar la imagen.'));
+      imagen.src = dataUrl;
+    });
+  }
+
+  private calcularTamanoDesdeDataUrl(dataUrl: string): number {
+    const indiceComa = dataUrl.indexOf(',');
+    const base64 = indiceComa >= 0 ? dataUrl.substring(indiceComa + 1) : dataUrl;
+    return Math.ceil((base64.length * 3) / 4);
   }
 }

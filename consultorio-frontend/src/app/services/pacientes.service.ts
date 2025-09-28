@@ -31,6 +31,7 @@ interface PacienteApi {
   alergias?: string;
   estado: boolean;
   fechaRegistro?: string;
+  fotoUrl?: string;
 }
 
 type PacientePayload = Omit<PacienteApi, 'pacienteId' | 'fechaRegistro'> & {
@@ -43,6 +44,7 @@ type PacientePayload = Omit<PacienteApi, 'pacienteId' | 'fechaRegistro'> & {
 })
 export class PacientesService {
   private readonly baseUrl = `${environment.apiUrl.replace(/\/$/, '')}/api/Pacientes`;
+  private readonly apiRoot = environment.apiUrl.replace(/\/$/, '');
 
   constructor(private readonly http: HttpClient) {}
 
@@ -150,7 +152,8 @@ export class PacientesService {
       medicamentosActuales: [],
       enfermedadesCronicas: [],
       fechaRegistro,
-      activo: api.estado
+      activo: api.estado,
+      fotoUrl: this.normalizarFotoUrl(api.fotoUrl)
     };
   }
 
@@ -181,8 +184,52 @@ export class PacientesService {
       tipoSangre: paciente.tipoSangre,
       alergias: this.stringifyLista(paciente.alergias),
       estado: paciente.activo,
-      fechaRegistro: paciente.fechaRegistro?.toISOString()
+      fechaRegistro: paciente.fechaRegistro?.toISOString(),
+      fotoUrl: this.prepararFotoParaEnvio(paciente.fotoUrl)
     };
+  }
+
+  private normalizarFotoUrl(fotoUrl?: string): string | undefined {
+    if (!fotoUrl) {
+      return undefined;
+    }
+
+    const trimmed = fotoUrl.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    if (trimmed.startsWith('data:') || /^https?:\/\//i.test(trimmed)) {
+      return trimmed;
+    }
+
+    if (trimmed.startsWith('/')) {
+      return `${this.apiRoot}${trimmed}`;
+    }
+
+    return `${this.apiRoot}/${trimmed}`;
+  }
+
+  private prepararFotoParaEnvio(fotoUrl?: string): string | undefined {
+    if (!fotoUrl) {
+      return undefined;
+    }
+
+    const trimmed = fotoUrl.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    if (trimmed.startsWith('data:')) {
+      return trimmed;
+    }
+
+    if (trimmed.startsWith(this.apiRoot)) {
+      const relative = trimmed.substring(this.apiRoot.length);
+      return relative.startsWith('/') ? relative : `/${relative}`;
+    }
+
+    return trimmed;
   }
 
   private parseContactoEmergencia(nombre?: string, telefono?: string): Paciente['contactoEmergencia'] | undefined {
