@@ -262,6 +262,9 @@ namespace ConsultorioMedico.Migrations
                     b.Property<DateTime>("FechaRegistro")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("FotoUrl")
+                        .HasColumnType("longtext");
+
                     b.Property<string>("Genero")
                         .IsRequired()
                         .HasMaxLength(10)

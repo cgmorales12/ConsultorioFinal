@@ -162,6 +162,7 @@ namespace ConsultorioMedico.API.Controllers
                 pacienteExistente.TelefonoEmergencia = paciente.TelefonoEmergencia;
                 pacienteExistente.TipoSangre = paciente.TipoSangre;
                 pacienteExistente.Alergias = paciente.Alergias;
+                pacienteExistente.FotoUrl = paciente.FotoUrl;
 
                 await _context.SaveChangesAsync();
 

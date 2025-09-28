@@ -22,6 +22,8 @@ export class PacientesComponent implements OnInit {
   pacientesFiltrados: Paciente[] = [];
   cargando = false;
   maxFechaNacimiento = new Date().toISOString().split('T')[0];
+  fotoPreview: string | null = null;
+  fotoCargando = false;
   private readonly instruccionesCampos: Record<string, string> = {
     cedula: 'Cédula: ingresa 10 dígitos numéricos sin espacios ni guiones.',
     nombres: 'Nombres: escribe al menos dos caracteres alfabéticos.',
@@ -62,7 +64,8 @@ export class PacientesComponent implements OnInit {
       contactoEmergenciaRelacion: [''],
       alergias: [''],
       medicamentosActuales: [''],
-      enfermedadesCronicas: ['']
+      enfermedadesCronicas: [''],
+      foto: ['']
     });
   }
 
@@ -98,6 +101,8 @@ export class PacientesComponent implements OnInit {
   nuevoPaciente(): void {
     this.pacienteSeleccionado = null;
     this.formularioPaciente.reset();
+    this.fotoPreview = null;
+    this.fotoCargando = false;
     this.mostrarFormulario = true;
   }
 
@@ -122,6 +127,11 @@ export class PacientesComponent implements OnInit {
       medicamentosActuales: paciente.medicamentosActuales?.join(', '),
       enfermedadesCronicas: paciente.enfermedadesCronicas?.join(', ')
     });
+    this.formularioPaciente.patchValue({
+      foto: paciente.fotoUrl ?? ''
+    });
+    this.fotoPreview = paciente.fotoUrl ?? null;
+    this.fotoCargando = false;
     this.mostrarFormulario = true;
   }
 
@@ -162,7 +172,8 @@ export class PacientesComponent implements OnInit {
       enfermedadesCronicas: formData.enfermedadesCronicas ? formData.enfermedadesCronicas.split(',').map((e: string) => e.trim()) : [],
       fechaRegistro: this.pacienteSeleccionado?.fechaRegistro || new Date(),
       activo: this.pacienteSeleccionado?.activo ?? true,
-      email: formData.email
+      email: formData.email,
+      fotoUrl: formData.foto || undefined
     };
 
     if (this.pacienteSeleccionado) {
@@ -236,6 +247,56 @@ export class PacientesComponent implements OnInit {
     this.mostrarFormulario = false;
     this.pacienteSeleccionado = null;
     this.formularioPaciente.reset();
+    this.fotoPreview = null;
+    this.fotoCargando = false;
+  }
+
+  onFotoSeleccionada(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) {
+      return;
+    }
+
+    const archivo = input.files[0];
+    const esImagen = archivo.type.startsWith('image/');
+    const tamanoMaximo = 5 * 1024 * 1024; // 5 MB
+
+    if (!esImagen) {
+      alert('Selecciona un archivo de imagen válido (JPG, PNG, HEIC, etc.).');
+      input.value = '';
+      return;
+    }
+
+    if (archivo.size > tamanoMaximo) {
+      alert('La imagen es demasiado pesada. Selecciona una foto menor a 5 MB.');
+      input.value = '';
+      return;
+    }
+
+    const lector = new FileReader();
+    this.fotoCargando = true;
+
+    lector.onload = () => {
+      this.fotoCargando = false;
+      const resultado = lector.result as string;
+      this.fotoPreview = resultado;
+      this.formularioPaciente.patchValue({ foto: resultado });
+      input.value = '';
+    };
+
+    lector.onerror = () => {
+      this.fotoCargando = false;
+      alert('No se pudo cargar la imagen seleccionada. Intenta nuevamente.');
+      input.value = '';
+    };
+
+    lector.readAsDataURL(archivo);
+  }
+
+  quitarFoto(): void {
+    this.fotoPreview = null;
+    this.fotoCargando = false;
+    this.formularioPaciente.patchValue({ foto: '' });
   }
 
   // Getter para validación del formulario

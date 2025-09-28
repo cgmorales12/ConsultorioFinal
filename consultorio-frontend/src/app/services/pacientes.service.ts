@@ -31,6 +31,7 @@ interface PacienteApi {
   alergias?: string;
   estado: boolean;
   fechaRegistro?: string;
+  fotoUrl?: string;
 }
 
 type PacientePayload = Omit<PacienteApi, 'pacienteId' | 'fechaRegistro'> & {
@@ -150,7 +151,8 @@ export class PacientesService {
       medicamentosActuales: [],
       enfermedadesCronicas: [],
       fechaRegistro,
-      activo: api.estado
+      activo: api.estado,
+      fotoUrl: api.fotoUrl ?? undefined
     };
   }
 
@@ -181,7 +183,8 @@ export class PacientesService {
       tipoSangre: paciente.tipoSangre,
       alergias: this.stringifyLista(paciente.alergias),
       estado: paciente.activo,
-      fechaRegistro: paciente.fechaRegistro?.toISOString()
+      fechaRegistro: paciente.fechaRegistro?.toISOString(),
+      fotoUrl: paciente.fotoUrl
     };
   }
 
