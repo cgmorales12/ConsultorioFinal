@@ -1,4 +1,6 @@
-﻿using ConsultorioMedico.API.Data;
+﻿using System;
+using System.IO;
+using ConsultorioMedico.API.Data;
 using ConsultorioMedico.API.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -101,6 +103,31 @@ namespace ConsultorioMedico.API.Controllers
                 paciente.FechaRegistro = DateTime.Now;
                 paciente.Estado = true;
 
+                if (!string.IsNullOrWhiteSpace(paciente.FotoUrl))
+                {
+                    if (!EsDataUrl(paciente.FotoUrl))
+                    {
+                        return BadRequest(new
+                        {
+                            success = false,
+                            message = "El formato de la imagen no es válido."
+                        });
+                    }
+
+                    try
+                    {
+                        paciente.FotoUrl = await GuardarFotoAsync(paciente.FotoUrl);
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        return BadRequest(new
+                        {
+                            success = false,
+                            message = ex.Message
+                        });
+                    }
+                }
+
                 _context.Pacientes.Add(paciente);
                 await _context.SaveChangesAsync();
 
@@ -162,7 +189,33 @@ namespace ConsultorioMedico.API.Controllers
                 pacienteExistente.TelefonoEmergencia = paciente.TelefonoEmergencia;
                 pacienteExistente.TipoSangre = paciente.TipoSangre;
                 pacienteExistente.Alergias = paciente.Alergias;
-                pacienteExistente.FotoUrl = paciente.FotoUrl;
+
+                if (string.IsNullOrWhiteSpace(paciente.FotoUrl))
+                {
+                    EliminarFotoExistente(pacienteExistente.FotoUrl);
+                    pacienteExistente.FotoUrl = null;
+                }
+                else if (EsDataUrl(paciente.FotoUrl))
+                {
+                    try
+                    {
+                        var nuevaFoto = await GuardarFotoAsync(paciente.FotoUrl);
+                        EliminarFotoExistente(pacienteExistente.FotoUrl);
+                        pacienteExistente.FotoUrl = nuevaFoto;
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        return BadRequest(new
+                        {
+                            success = false,
+                            message = ex.Message
+                        });
+                    }
+                }
+                else
+                {
+                    pacienteExistente.FotoUrl = paciente.FotoUrl;
+                }
 
                 await _context.SaveChangesAsync();
 
@@ -180,6 +233,101 @@ namespace ConsultorioMedico.API.Controllers
                     message = "Error al actualizar el paciente",
                     error = ex.Message
                 });
+            }
+        }
+
+        private static bool EsDataUrl(string valor)
+        {
+            return !string.IsNullOrWhiteSpace(valor) && valor.TrimStart().StartsWith("data:", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ObtenerExtension(string mimeType)
+        {
+            return mimeType switch
+            {
+                "image/jpeg" => ".jpg",
+                "image/png" => ".png",
+                "image/gif" => ".gif",
+                "image/webp" => ".webp",
+                "image/bmp" => ".bmp",
+                _ => ".jpg"
+            };
+        }
+
+        private async Task<string> GuardarFotoAsync(string dataUrl)
+        {
+            var comaIndex = dataUrl.IndexOf(',');
+            if (comaIndex < 0)
+            {
+                throw new InvalidOperationException("El formato de la imagen no es válido.");
+            }
+
+            var metadata = dataUrl[..comaIndex];
+            if (!metadata.Contains(";base64", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("El formato de la imagen no es válido.");
+            }
+
+            var base64 = dataUrl[(comaIndex + 1)..];
+
+            byte[] bytes;
+            try
+            {
+                bytes = Convert.FromBase64String(base64);
+            }
+            catch (FormatException)
+            {
+                throw new InvalidOperationException("La imagen cargada está dañada. Selecciona otra foto.");
+            }
+
+            const int maxBytes = 3 * 1024 * 1024; // 3 MB
+            if (bytes.Length > maxBytes)
+            {
+                throw new InvalidOperationException("La imagen es demasiado pesada. Selecciona una foto menor a 3 MB.");
+            }
+
+            var mimeType = metadata.Replace("data:", string.Empty, StringComparison.OrdinalIgnoreCase)
+                                   .Replace(";base64", string.Empty, StringComparison.OrdinalIgnoreCase)
+                                   .Trim();
+
+            if (string.IsNullOrWhiteSpace(mimeType) || !mimeType.StartsWith("image", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Solo se permiten archivos de imagen.");
+            }
+
+            var extension = ObtenerExtension(mimeType);
+            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "pacientes");
+            Directory.CreateDirectory(uploadsFolder);
+
+            var fileName = $"{Guid.NewGuid():N}{extension}";
+            var filePath = Path.Combine(uploadsFolder, fileName);
+
+            await System.IO.File.WriteAllBytesAsync(filePath, bytes);
+
+            return $"/uploads/pacientes/{fileName}";
+        }
+
+        private void EliminarFotoExistente(string? rutaRelativa)
+        {
+            if (string.IsNullOrWhiteSpace(rutaRelativa))
+            {
+                return;
+            }
+
+            var trimmed = rutaRelativa.Trim();
+            var relativePath = trimmed.StartsWith('/') ? trimmed[1..] : trimmed;
+            var fullPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", relativePath.Replace('/', Path.DirectorySeparatorChar));
+
+            if (System.IO.File.Exists(fullPath))
+            {
+                try
+                {
+                    System.IO.File.Delete(fullPath);
+                }
+                catch
+                {
+                    // Si no se puede eliminar, se ignora para no interrumpir la operación principal.
+                }
             }
         }
 

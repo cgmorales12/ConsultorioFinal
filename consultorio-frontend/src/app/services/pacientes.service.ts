@@ -44,6 +44,7 @@ type PacientePayload = Omit<PacienteApi, 'pacienteId' | 'fechaRegistro'> & {
 })
 export class PacientesService {
   private readonly baseUrl = `${environment.apiUrl.replace(/\/$/, '')}/api/Pacientes`;
+  private readonly apiRoot = environment.apiUrl.replace(/\/$/, '');
 
   constructor(private readonly http: HttpClient) {}
 
@@ -152,7 +153,7 @@ export class PacientesService {
       enfermedadesCronicas: [],
       fechaRegistro,
       activo: api.estado,
-      fotoUrl: api.fotoUrl ?? undefined
+      fotoUrl: this.normalizarFotoUrl(api.fotoUrl)
     };
   }
 
@@ -184,8 +185,51 @@ export class PacientesService {
       alergias: this.stringifyLista(paciente.alergias),
       estado: paciente.activo,
       fechaRegistro: paciente.fechaRegistro?.toISOString(),
-      fotoUrl: paciente.fotoUrl
+      fotoUrl: this.prepararFotoParaEnvio(paciente.fotoUrl)
     };
+  }
+
+  private normalizarFotoUrl(fotoUrl?: string): string | undefined {
+    if (!fotoUrl) {
+      return undefined;
+    }
+
+    const trimmed = fotoUrl.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    if (trimmed.startsWith('data:') || /^https?:\/\//i.test(trimmed)) {
+      return trimmed;
+    }
+
+    if (trimmed.startsWith('/')) {
+      return `${this.apiRoot}${trimmed}`;
+    }
+
+    return `${this.apiRoot}/${trimmed}`;
+  }
+
+  private prepararFotoParaEnvio(fotoUrl?: string): string | undefined {
+    if (!fotoUrl) {
+      return undefined;
+    }
+
+    const trimmed = fotoUrl.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    if (trimmed.startsWith('data:')) {
+      return trimmed;
+    }
+
+    if (trimmed.startsWith(this.apiRoot)) {
+      const relative = trimmed.substring(this.apiRoot.length);
+      return relative.startsWith('/') ? relative : `/${relative}`;
+    }
+
+    return trimmed;
   }
 
   private parseContactoEmergencia(nombre?: string, telefono?: string): Paciente['contactoEmergencia'] | undefined {
